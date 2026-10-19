@@ -1,73 +1,79 @@
-# The Unofficial Guide
+# The Unofficial Guide — RAG Question-Answering System
 
-<!-- Replace this line with your name and which corpus you picked. -->
+The Unofficial Guide is a Python-based retrieval-augmented generation (RAG) application that answers questions about campus life using a collection of student life documents.
 
-> **This file is your submission.** Fill it in as you go — most sections get
-> written during the milestone that produces them, not at the end.
->
-> How the starter works, and every command you'll need, is in `RUNNING.md`.
-> Leave that file alone.
->
-> **Paste everything as text.** No screenshots, no video. A typed table gets
-> full credit; a picture of the same table gets none, because the grader can't
-> read it.
->
-> Delete these instruction blocks as you replace them. The `<!-- -->` comments
-> are notes to you and don't show up when the page renders — you can leave them
-> or remove them.
+The system retrieves relevant document passages, applies a relevance threshold to filter unrelated questions, and generates answers grounded in the retrieved content. It also supports source attribution so users can identify the documents behind an answer.
+
+## Key Features
+
+- **Document processing:** Splits campus-life documents into paragraph-based chunks targeting approximately 500 characters.
+- **Semantic retrieval:** Searches indexed document chunks for information relevant to a user's question.
+- **Relevance filtering:** Uses a configurable distance threshold to reject questions outside the document collection.
+- **Source attribution:** Supports citing source documents in generated answers; evaluation identified missing attribution in refusal responses.
+- **Hybrid retrieval experiment:** Combines semantic similarity with BM25 keyword matching to evaluate whether retrieval quality improves.
+- **Structured evaluation:** Measures answer retrieval, source attribution, out-of-scope rejection, chunk quality, and retrieval ranking.
+
+## System Workflow
+
+1. **Chunk documents:** Divide the source documents into passages while preserving paragraph boundaries.
+2. **Index passages:** Prepare the chunks for semantic retrieval.
+3. **Retrieve context:** Search for passages relevant to the user's question.
+4. **Apply relevance filtering:** Reject queries when retrieved results fall outside the configured relevance threshold.
+5. **Generate an answer:** Use retrieved passages to produce an answer with supporting source references when available.
+6. **Evaluate results:** Test retrieval and response behavior against five defined criteria.
+
+## Evaluation Results
+
+The initial evaluation produced the following results per run across three runs:
+
+| Criterion | Target | Observed result |
+|---|---|---|
+| Retrieved chunk contains the answer | 4/5 | 1/5 |
+| Every answer names a source | 5/5 | 1/5 |
+| Out-of-corpus questions are rejected | 4/5 | 5/5 |
+| Sampled chunks contain sufficient context | 4/5 | 5/5 |
+| Relevant source appears in the top three results | 5/5 | 2/5 |
+
+The system successfully rejected all five out-of-scope questions and produced understandable document chunks in the sampled evaluation.
+
+However, retrieval frequently returned passages that were related to the question's topic without containing the information needed to answer it. Source attribution also failed for several refusal responses.
+
+To investigate the retrieval issue, I implemented an experimental hybrid search approach combining semantic similarity with BM25 keyword matching. This changed retrieval rankings but did not meaningfully improve the measured results.
+
+### My Contributions
+
+Developed as part of the CodePath Applied AI program using a provided starter repository.
+
+- Modified the document chunking implementation to group complete paragraphs into passages targeting approximately 500 characters.
+- Configured and tested a relevance threshold to distinguish campus-related questions from out-of-scope queries.
+- Implemented an experimental hybrid retrieval approach combining semantic similarity with BM25 keyword matching.
+- Defined evaluation questions, executed repeated tests, and analyzed failures in retrieval quality and source attribution.
+- Compared retrieval behavior before and after introducing BM25, documenting that the change did not improve the measured results.
+
+## Getting Started
+
+See [RUNNING.md](RUNNING.md) for setup and execution instructions.
+
+## Implementation and Evaluation Details
+
+The sections below document the chunking strategy, sample outputs, relevance threshold, evaluation methodology, retrieval experiment, and remaining limitations.
 
 ---
 
-# Week 1
-
-## What This Does
-
-This project uses the campus_life corpus to answer questions about student life using info from the provided documents. It can answer questions about topics like dining, housing, courses, parking, and campus facilities. The system retrieves the most relevant document chunks, checks whether they are relevant enough to use, and then generates an answer based only on those chunks. Each answer also includes the source document so the information can be checked.
-
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
-
-     Milestone 5. -->
 
 ## Chunking Strategy
 
 **Chunk size: 500 characters**
 **Overlap: No fixed overlap, chunks are grouped by paragraph boundaries instead.**
 
-I chose this strategy because the campus_life documents are short posts, with most documents already fitting within a few hundred characters. In Milestone 1, the starter produced 88 documents and 88 chunks, which showed that the default 800-character splitter rarely split anything. I changed the strategy to group complete paragraphs together up to about 500 characters so each chunk stays focused while preserving complete ideas.
+I chose this strategy because the campus_life documents are short posts, with most documents already fitting within a few hundred characters. The starter produced 88 documents and 88 chunks, which showed that the default 800-character splitter rarely split anything. I changed the strategy to group complete paragraphs together up to about 500 characters so each chunk stays focused while preserving complete ideas.
 
 This produced 90 chunks instead of 88, and the sampled chunks were still understandable without needing neighboring chunks.
 
 ## Sample Chunks
 
 ======================================================================
-Chunk 1  |  source: admin_add_drop_deadline.txt#0  |  produced by: chunker.py::split_documents
-======================================================================
-On the add/drop deadline
-
-You can add a course through the end of the second week. Dropping is a longer window — through the end of week six — but a drop after week two shows as a W on your transcript. Nothing anywhere on the registrar's site says this plainly, and students find out from each other.
-
-======================================================================
-Chunk 2  |  source: course_biol_160_exams.txt#0  |  produced by: chunker.py::split_documents
-======================================================================
-BIOL 160 Cell Biology — assessment
-
-Four unit tests and a cumulative final. Not curved.
-
-The unit tests come fast, roughly every three weeks; falling behind once is very hard to recover from.
-
-======================================================================
-Chunk 3  |  source: course_math_220_exams.txt#0  |  produced by: chunker.py::split_documents
-======================================================================
-MATH 220 Linear Algebra — assessment
-
-Two midterms and a cumulative final. Curved to a b- median.
-
-The problem sets are the course; the lectures make sense afterwards rather than during.
-
-======================================================================
-Chunk 4  |  source: dining_the_ridgeway_cafe.txt#0  |  produced by: chunker.py::split_documents
+Chunk 1  |  source: dining_the_ridgeway_cafe.txt#0  |  produced by: chunker.py::split_documents
 ======================================================================
 The Ridgeway Café
 
@@ -76,7 +82,7 @@ Second-year here. Wait times: 10 to 15 minutes at 12:30, none after 2:00. The th
 Hours are 7:00am to 4:00pm weekdays only. Costs declining balance only, no meal swipes.
 
 ======================================================================
-Chunk 5  |  source: housing_morrow_house.txt#0  |  produced by: chunker.py::split_documents
+Chunk 2  |  source: housing_morrow_house.txt#0  |  produced by: chunker.py::split_documents
 ======================================================================
 Morrow House — what it's actually like
 
@@ -90,9 +96,6 @@ Laundry costs $1.50 wash, $1.25 dry, coin or card. On noise: loud until about 1a
 
 ## Sample Answer
 
-<!-- One complete question and answer, pasted as text, with the source line
-     visible. Milestone 4. -->
-
 **Question:**
 
 "What are the wait times at The Ridgeway Café around 12:30?"
@@ -105,21 +108,9 @@ Laundry costs $1.50 wash, $1.25 dry, coin or card. On noise: loud until about 1a
 
 dining_the_ridgeway_cafe.txt
 
-```
-```
+## Relevance Threshold
 
-**My relevance cutoff:**
-
-0.7
-
-<!-- The number you set in config.py, and how you got there.
-
-     You ran five questions your corpus covers and the five in OUT_OF_SCOPE
-     that it clearly doesn't, and wrote down the best distance for each. What
-     did those two groups look like? Where was the gap? Put the actual numbers
-     here — the table below wants all ten rows.
-
-     Milestone 4. -->
+**My relevance cutoff:** 0.7
 
 | Question | In corpus? | Best distance |
 |---|---|---|
@@ -136,15 +127,6 @@ dining_the_ridgeway_cafe.txt
 
 ## How I Used AI
 
-<!-- Two specific moments. For each: what you asked for, what came back, and
-     what you changed about it.
-
-     "I asked Claude to write the chunking function from my notes. It ignored
-     the overlap, so I added that myself" is the level of detail we're after.
-     "I used AI to help me code" is not.
-
-     Milestone 5. -->
-
 **1.**
 
 I used AI to help review my five test questions and make them more specific and easier to check. The AI suggested clearer wording and more specific expected phrases. I then edited the questions myself so they matched the topics I wanted to test in the campus_life corpus.
@@ -155,32 +137,11 @@ I used AI to help revise the chunking logic in chunker.py. It suggested grouping
 
 **3.**
 
-I used AI to help review the Week 2 test results and identify where the failures were happening in the pipeline. It suggested that Criteria 1 and 5 were mainly retrieval problems because the returned chunks often did not contain the specific information needed, while Criterion 2 was a generation problem because refusal responses did not name sources. I used that diagnosis to choose hybrid search with BM25 as my single improvement, then compared the before and after evaluation results to see if it helped.
-
-<!-- ── Stretch features ─────────────────────────────────────────────────────
-     Doing one? Say so here BEFORE you start. A feature this README never
-     claims earns nothing.
-     ───────────────────────────────────────────────────────────────────────── -->
+I used AI to help review the test results and identify where the failures were happening in the pipeline. It suggested that Criteria 1 and 5 were mainly retrieval problems because the returned chunks often did not contain the specific information needed, while Criterion 2 was a generation problem because refusal responses did not name sources. I used that diagnosis to choose hybrid search with BM25 as my single improvement, then compared the before and after evaluation results to see if it helped.
 
 ---
 
-# Week 2
-
-<!-- These sections get ADDED to what's already above. Don't delete or rewrite
-     week 1 — the point is that someone can see what you said before you knew
-     how it went. -->
-
 ## Run Log — Before
-
-<!-- Your five criteria, three runs each. `python run_eval.py --label before`
-     runs the questions, puts the OUT_OF_SCOPE ones through the gate, and
-     writes it all into results/ for you. Targets come from criteria.md; the
-     verdict column is your call.
-
-     Criterion 3 is measured in one deterministic pass rather than three, so
-     the same number goes in all three run columns. That's correct, not lazy.
-
-     Milestone 1. -->
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
@@ -232,21 +193,7 @@ Question: What do students say about how difficult it is to find parking?
 1. admin_parking_permits.txt — distance 0.5795
 
 
-
-<!-- Underneath, paste the REAL output for each criterion from one of your
-     runs — the actual text your system produced, not a description of it.
-     Name the file and function that produced it. -->
-
 ## Verdicts
-
-<!-- MET or MISSED for each of the five, against the target you wrote last
-     week — not a new one. Plus a sentence on how you decided. That sentence
-     matters most where it was close.
-
-     If your target said 4 of 5 and your runs came out 4, 3, 4, that's a MISS.
-     The target has to hold, not show up occasionally.
-
-     Milestone 2. -->
 
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
@@ -257,24 +204,6 @@ Question: What do students say about how difficult it is to find parking?
 | 5 | Relevant source appears in top 3 | MISSED | A relevant source appeared in the top 3 for only 2 of 5 test questions, below the 5 of 5 target. |
 
 ## Diagnoses
-
-<!-- For each miss: which stage caused it, and how. The stage alone isn't
-     enough — you need the mechanism.
-
-     Not a diagnosis: "Question 3 didn't work."
-     A diagnosis:     "Question 3 asks about laundry costs. The answer is in
-                       one sentence that got split across two chunks, so
-                       neither chunk on its own contains it."
-
-     The five stages: loading → chunking → embedding → retrieval → generation.
-
-     Look for a pattern. If three misses all ask about numbers, that's one
-     problem, not three.
-
-     Missed nothing? Say so, then say honestly whether your targets were set
-     low, and which one you'd tighten and to what.
-
-     Milestone 3. -->
 
 ### Criterion 1 — Retrieved chunks contain the answer
 
@@ -305,52 +234,26 @@ I changed retrieval from semantic vector search alone to a hybrid approach that 
 
 My diagnoses showed that Criteria 1 and 5 were mainly failing during retrieval. Several questions returned documents that were generally related to campus life but did not contain the specific information being requested, so I tested whether adding keyword matching would rank more useful documents higher.
 
-<!-- Connect it to a specific diagnosis above in one sentence. If you can't,
-     you picked a fix because it sounded impressive. -->
-
 ### Run Log — After
-
-<!-- Same format, same five criteria, three runs each.
-     `python run_eval.py --label after` -->
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 1 of 5 | 1 of 5 | 1 of 5 | MISSED |
+| 2. Every answer names a source | 5 of 5 | 1 of 5 | 1 of 5 | 1 of 5 | MISSED |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5 of 5 | 5 of 5 | 5 of 5 | MET |
+| 4. Sampled chunks have enough context | 4 of 5 | 5 of 5 | 5 of 5 | 5 of 5 | MET |
+| 5. Relevant source appears in top 3 | 5 of 5 | 2 of 5 | 2 of 5 | 2 of 5 | MISSED |
 
 **Did it help?**
 
 The hybrid search did not meaningfully improve the measured results. Criteria 1 and 5 still missed their original targets, and the same four questions still did not retrieve enough information to produce supported answers. The change altered which documents were returned and their ranking, but it did not increase the number of test questions the system could answer correctly.
 
-<!-- Say plainly whether it did, and how you know. If it made things worse,
-     say that — a change that backfired, honestly reported, earns full credit
-     and is more interesting than one that worked. What matters is that you can
-     tell.
-
-     Milestone 4. -->
-
-## What's Still Broken
+## Limitations and Future Improvements
 
 Criteria 1 and 5 are still missed because retrieval does not consistently return chunks containing the specific information needed by the question. Adding BM25 changed the ranking of some documents, but it did not improve the overall test results. A next step would be to try a different retrieval weighting, increase top-k, or test a different chunking strategy.
 
-Criterion 2 is still missed because refusal responses do not name a source document. A next step would be to change the generation prompt so that even refusal responses identify the retrieved sources. I stopped after the single required improvement so I could measure its effect without mixing multiple changes together.
-
-<!-- For each criterion still missed after your fix: what you'd do about it,
-     and why you stopped where you did.
-
-     "I ran out of time" is fine if it's true. Pretending nothing is left is
-     not.
-
-     Milestone 5. -->
+Criterion 2 is still missed because refusal responses do not name a source document. A next step would be to change the generation prompt so that even refusal responses identify the retrieved sources. Only one retrieval modification was introduced during this experiment to allow a controlled before and after comparison.
 
 ## What I'd Do Differently
 
 I would change Criterion 5 so that it measures whether the top three retrieved chunks actually contain the answer instead of only requiring a relevant source. During testing, some sources were related to the topic but still did not contain enough information to answer the question. Measuring whether the answer is present would make the criterion more precise.
-
-<!-- Knowing what you know now — which of your five criteria would you write
-     differently, and why?
-
-     Milestone 5. -->
